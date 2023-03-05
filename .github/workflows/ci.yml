@@ -1,12 +1,25 @@
-name: Build and Push Docker Image
+name: Deploy to Cloud Run
 
 on:
   push:
     branches:
       - 'main'
 
+env:
+  PROJECT_ID: ${{ vars.PROJECT_ID }}
+  GAR_LOCATION: ${{ vars.GAR_LOCATION }}
+  REPOSITORY: ${{ vars.REPOSITORY }}
+  SERVICE: ${{ vars.SERVICE }}
+  REGION: ${{ vars.REGION }}
+  TELEGRAM_WEBHOOK_URL: ${{ vars.TELEGRAM_WEBHOOK_URL }}
+  
 jobs:
   build:
+    permissions:
+      contents: 'read'
+      packages: 'write'
+      id-token: 'write'
+      
     runs-on: ubuntu-latest
 
     steps:
@@ -14,23 +27,44 @@ jobs:
       uses: ASzc/change-string-case-action@v5
       with:
         string: ${{ github.repository }}
+        
     - name: Check out code
       uses: actions/checkout@v3
+      
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
+      
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
+      
+    - name: Google Auth
+      id: google-auth
+      uses: 'google-github-actions/auth@v0'
+      with:
+        token_format: 'access_token'
+        workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
+        service_account: '${{ secrets.WIF_SERVICE_ACCOUNT }}'
+      
     - name: Login to GHCR
       uses: docker/login-action@v1
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Login to GAR
+      uses: 'docker/login-action@v1'
+      with:
+        username: 'oauth2accesstoken'
+        password: '${{ steps.google-auth.outputs.access_token }}'
+        registry: '${{ env.GAR_LOCATION }}-docker.pkg.dev'
+        
     - name: Create short sha and tag
       shell: bash
       run: |
         echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
         if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then echo TAG=latest; else echo TAG="${GITHUB_REF##*/}"; fi >> $GITHUB_ENV
+        
     - name: Build Docker Image
       uses: docker/build-push-action@v2
       with:
@@ -39,6 +73,25 @@ jobs:
         tags: |
           ghcr.io/${{ steps.lowercaseRepo.outputs.lowercase }}:${{ env.SHORT_SHA }}
           ghcr.io/${{ steps.lowercaseRepo.outputs.lowercase }}:${{ env.TAG }}
+          ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ env.SHORT_SHA }}
         platforms: linux/amd64,linux/arm64
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        
+    - name: Deploy to Cloud Run
+      id: deploy
+      uses: google-github-actions/deploy-cloudrun@v0
+      with:
+        service: ${{ env.SERVICE }}
+        region: ${{ env.REGION }}
+        image: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ env.SHORT_SHA }}
+        env_vars: |
+          MONGODB_URI=${{ secrets.MONGODB_URI }}
+          TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          TELEGRAM_WEBHOOK_URL=${{ env.TELEGRAM_WEBHOOK_URL }}
+          USE_CHATGPT_API=true
+          NEW_DIALOG_TIMEOUT=600
+          
+    - name: Show Output
+      run: echo ${{ steps.deploy.outputs.url }}
