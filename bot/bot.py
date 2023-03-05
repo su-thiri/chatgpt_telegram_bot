@@ -23,7 +23,11 @@ import chatgpt
 
 
 # setup
-db = database.Database()
+try:
+    db = database.SqlDatabase()
+except:
+    db = database.MongoDatabase()
+
 logger = logging.getLogger(__name__)
 
 HELP_MESSAGE = """Commands:
