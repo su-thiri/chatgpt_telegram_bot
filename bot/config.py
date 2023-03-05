@@ -21,5 +21,6 @@ use_chatgpt_api = os.getenv('USE_CHATGPT_API', config_yaml.get("use_chatgpt_api"
 allowed_telegram_usernames = config_yaml.get('allowed_telegram_usernames', list(filter(None, os.getenv("TELEGRAM_USERNAMES", "").split(','))))
 new_dialog_timeout = int(os.getenv("NEW_DIALOG_TIMEOUT", config_yaml.get("new_dialog_timeout")))
 mongodb_uri = os.getenv('MONGODB_URI', config_yaml.get("mongodb_uri"))
+sql_uri = os.getenv('SQL_URI', config_yaml.get("sql_uri"))
 port = int(os.getenv('PORT', config_yaml.get("port", "8080")))
 webhook_url = os.getenv('TELEGRAM_WEBHOOK_URL', config_yaml.get("webhook_url"))
