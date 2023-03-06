@@ -94,6 +94,7 @@ class Database:
         if not self.check_if_user_exists(user_id):
             user = User(id=user_id, chat_id=chat_id, username=username, first_name=first_name, last_name=last_name, current_chat_mode="assistant", n_used_tokens=0)
             self.session.add(user)
+            self.session.commit()
 
     def start_new_dialog(self, user_id: int):
         self.check_if_user_exists(user_id, raise_exception=True)
@@ -105,6 +106,7 @@ class Database:
         self.session.add(dialog)
         # update user's current dialog
         self.session.query(User).filter_by(id=user_id).update({User.current_dialog_id: dialog_id})
+        self.session.commit()
 
     def get_user_attribute(self, user_id: int, key: str):
         user = self.session.query(User).filter_by(id=user_id).one()
@@ -141,3 +143,4 @@ class Database:
         json_string = json.dumps(dialog_messages, default=str) if dialog_messages else None
         
         self.session.query(Dialog).filter_by(id=dialog_id, user_id=user_id).update({Dialog.messages: json_string})
+        self.session.commit()
