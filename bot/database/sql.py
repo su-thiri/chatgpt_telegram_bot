@@ -59,28 +59,46 @@ class Dialog(Base):
 
     def __repr__(self):
         return f"<Dialog(user_id={self.user_id}, chat_mode={self.chat_mode}, start_time={self.start_time})>"
+    
+
+_session = None
+
+def sessionFactory():
+    global _session
+    
+    if _session is not None:
+        return _session
+    
+    # create database engine
+    engine = create_engine(config.sql_uri, echo=False)
+
+    Base.metadata.create_all(engine)
+
+    # session maker
+    _session = sessionmaker(bind=engine)
+
+    return _session
 
 class Database:
     def __init__(self):
-        # create database engine
-        self.engine = create_engine(config.sql_uri, echo=True)
-
-        Base.metadata.create_all(self.engine)
-
-        # create session
-        Session = sessionmaker(bind=self.engine)
-        self.session = Session()
+        try:
+            self.session = sessionFactory()
+        except Exception as e:
+            print(e)
+            raise e
 
     def check_if_user_exists(self, user_id: int, raise_exception: bool = False):
-        exists = self.session.query(User).filter_by(id=user_id).count() > 0
+        with self.session() as session:
 
-        if exists:
-            return True
-        else:
-            if raise_exception:
-                raise ValueError(f"User {user_id} does not exist")
+            exists = session.query(User).filter_by(id=user_id).count() > 0
+
+            if exists:
+                return True
             else:
-                return False
+                if raise_exception:
+                    raise ValueError(f"User {user_id} does not exist")
+                else:
+                    return False
             
     def add_new_user(
         self,
@@ -93,8 +111,9 @@ class Database:
 
         if not self.check_if_user_exists(user_id):
             user = User(id=user_id, chat_id=chat_id, username=username, first_name=first_name, last_name=last_name, current_chat_mode="assistant", n_used_tokens=0)
-            self.session.add(user)
-            self.session.commit()
+            with self.session() as session:
+                session.add(user)
+                session.commit()
 
     def start_new_dialog(self, user_id: int):
         self.check_if_user_exists(user_id, raise_exception=True)
@@ -102,23 +121,26 @@ class Database:
         dialog_id = str(uuid.uuid4())
         dialog = Dialog(id=dialog_id, user_id=user_id, chat_mode=self.get_user_attribute(user_id, "current_chat_mode"))
 
-        # add new dialog
-        self.session.add(dialog)
-        # update user's current dialog
-        self.session.query(User).filter_by(id=user_id).update({User.current_dialog_id: dialog_id})
-        self.session.commit()
+        with self.session() as session:
+            # add new dialog
+            session.add(dialog)
+            # update user's current dialog
+            session.query(User).filter_by(id=user_id).update({User.current_dialog_id: dialog_id})
+            session.commit()
 
     def get_user_attribute(self, user_id: int, key: str):
-        user = self.session.query(User).filter_by(id=user_id).one()
-        
-        if not hasattr(user, key):
-            raise ValueError(f"User {user_id} does not have a value for {key}")
-        
-        return getattr(user, key)
+        with self.session() as session:
+            user = session.query(User).filter_by(id=user_id).one()
+            
+            if not hasattr(user, key):
+                raise ValueError(f"User {user_id} does not have a value for {key}")
+            
+            return getattr(user, key)
 
     def set_user_attribute(self, user_id: int, key: str, value: Any):
-        user = self.session.query(User).filter_by(id=user_id).one()
-        setattr(user, key, value)
+        with self.session() as session:
+            user = session.query(User).filter_by(id=user_id).one()
+            setattr(user, key, value)
 
     def get_dialog_messages(self, user_id: int, dialog_id: Optional[str] = None):
         self.check_if_user_exists(user_id, raise_exception=True)
@@ -126,13 +148,14 @@ class Database:
         if dialog_id is None:
             dialog_id = self.get_user_attribute(user_id, "current_dialog_id")
 
-        dialog = self.session.query(Dialog).filter_by(id=dialog_id, user_id=user_id).one()
-        messages = json.loads(dialog.messages) if dialog.messages else []
-        
-        for m in messages:
-            m['date'] = datetime.datetime.strptime(m['date'], '%Y-%m-%d %H:%M:%S.%f')
-        
-        return messages
+        with self.session() as session:
+            dialog = session.query(Dialog).filter_by(id=dialog_id, user_id=user_id).one()
+            messages = json.loads(dialog.messages) if dialog.messages else []
+            
+            for m in messages:
+                m['date'] = datetime.datetime.strptime(m['date'], '%Y-%m-%d %H:%M:%S.%f')
+            
+            return messages
     
     def set_dialog_messages(self, user_id: int, dialog_messages: list, dialog_id: Optional[str] = None):
         self.check_if_user_exists(user_id, raise_exception=True)
@@ -142,5 +165,6 @@ class Database:
 
         json_string = json.dumps(dialog_messages, default=str) if dialog_messages else None
         
-        self.session.query(Dialog).filter_by(id=dialog_id, user_id=user_id).update({Dialog.messages: json_string})
-        self.session.commit()
+        with self.session() as session:
+            session.query(Dialog).filter_by(id=dialog_id, user_id=user_id).update({Dialog.messages: json_string})
+            session.commit()
