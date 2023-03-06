@@ -141,6 +141,7 @@ class Database:
         with self.session() as session:
             user = session.query(User).filter_by(id=user_id).one()
             setattr(user, key, value)
+            session.commit()
 
     def get_dialog_messages(self, user_id: int, dialog_id: Optional[str] = None):
         self.check_if_user_exists(user_id, raise_exception=True)
