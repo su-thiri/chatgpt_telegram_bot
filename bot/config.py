@@ -24,13 +24,12 @@ enable_message_streaming = os.getenv("ENABLE_MESSAGE_STREAMING", config_yaml.get
 mongodb_uri = os.getenv('MONGODB_URI', config_yaml.get("mongodb_uri"))
 sql_uri = os.getenv('SQL_URI', config_yaml.get("sql_uri"))
 port = int(os.getenv('PORT', config_yaml.get("port", "8080")))
-webhook_url = os.getenv('TELEGRAM_WEBHOOK_URL', config_yaml.get("webhook_url"))
 
 # chat_modes
 with open(config_dir / "chat_modes.yml", 'r') as f:
     chat_modes = yaml.safe_load(f)
 
 # prices
-chatgpt_price_per_1000_tokens = config_yaml.get("chatgpt_price_per_1000_tokens", 0.002)
-gpt_price_per_1000_tokens = config_yaml.get("gpt_price_per_1000_tokens", 0.02)
-whisper_price_per_1_min = config_yaml.get("whisper_price_per_1_min", 0.006)
+chatgpt_price_per_1000_tokens = float(os.getenv('CHATGPT_PRICE_PER_1000_TOKENS', config_yaml.get("chatgpt_price_per_1000_tokens", 0.002)))
+gpt_price_per_1000_tokens = float(os.getenv('GPT_PRICE_PER_1000_TOKENS', config_yaml.get("gpt_price_per_1000_tokens", 0.02)))
+whisper_price_per_1_min = float(os.getenv('WHISPER_PRICE_PER_1_MIN', config_yaml.get("whisper_price_per_1_min", 0.006)))

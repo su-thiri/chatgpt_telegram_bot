@@ -415,7 +415,7 @@ def run_bot() -> None:
     application.add_error_handler(error_handle)
     
     # start the bot
-    application.run_webhook(listen='0.0.0.0', port=config.port, webhook_url=config.webhook_url)
+    application.run_polling()
 
 
 if __name__ == "__main__":
