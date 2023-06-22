@@ -21,6 +21,8 @@ use_chatgpt_api = os.getenv('USE_CHATGPT_API', config_yaml.get("use_chatgpt_api"
 allowed_telegram_usernames = config_yaml.get('allowed_telegram_usernames', list(filter(None, os.getenv("TELEGRAM_USERNAMES", "").split(','))))
 new_dialog_timeout = int(os.getenv("NEW_DIALOG_TIMEOUT", config_yaml.get("new_dialog_timeout")))
 enable_message_streaming = os.getenv("ENABLE_MESSAGE_STREAMING", config_yaml.get("enable_message_streaming", True))
+return_n_generated_images = os.getenv("RETURN_N_GENERATED_IMAGES", config_yaml.get("return_n_generated_images", 1))
+n_chat_modes_per_page = os.getenv("N_CHAT_MODES_PER_PAGE", config_yaml.get("n_chat_modes_per_page", 5))
 mongodb_uri = os.getenv('MONGODB_URI', config_yaml.get("mongodb_uri"))
 port = int(os.getenv('PORT', config_yaml.get("port", "8080")))
 
